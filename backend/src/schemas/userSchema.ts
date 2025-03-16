@@ -119,6 +119,11 @@ const typeDefs = `#gql
     updateRecette(id: ID!, input: UpdateRecetteInput!): Recette
     createComment(input: CreateCommentInput!): Comment
     updateComment(id: ID!, input: UpdateCommentInput!): Comment
+    deleteRecette(id: ID!): ResponseMessage  # Mutation pour supprimer une recette
+    deleteComment(id: ID!): ResponseMessage
   }
+  type ResponseMessage {
+    message: String!
+}
 `;
 export default typeDefs;

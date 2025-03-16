@@ -51,6 +51,8 @@ const startServer = async () => {
                         token.replace("Bearer ", ""), process.env.SECRET
                     );
                     user = await User.findById(decoded.userID)
+                    console.log(token)
+                    console.log("Decoded userID:", decoded.userID);
                 } catch (error) {
                     console.warn("Token invalide ou expiré");
                 }

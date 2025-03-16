@@ -99,9 +99,14 @@ export const resolvers = {
       return {token, user}
     },
     updateUser: async(_:unknown, {id, input}: {id:string; input: Partial<UserInput>}, context: any)=>{
-      if (context.user || context.user._id ==id){
+      console.log("User in context:", context.user);
+      if (!context.user){
         throw new GraphQLError("Accès refusé", {extensions: {code: "UNAUTHORIZED"}});
       }
+      if (context.user._id.toString() !== id) {
+        throw new GraphQLError("Accès refusé", { extensions: { code: "UNAUTHORIZED" } });
+      }
+    
       if (input.mdp){
         input.mdp = await bcrypt.hash(input.mdp,10)
       }
@@ -135,6 +140,29 @@ export const resolvers = {
       }
       return await Recette.findByIdAndUpdate(id, { $set: input }, { new: true });
     },
+    deleteRecette: async (_: unknown, { id }: { id: string }, context: any) => {
+      if (!context.user) {
+          throw new GraphQLError("Authentification requise", { extensions: { code: "UNAUTHENTICATED" } });
+      }
+
+      const recette = await Recette.findById(id);
+      if (!recette) {
+          throw new GraphQLError("Recette non trouvée", { extensions: { code: "NOT_FOUND" } });
+      }
+
+      // Vérifie si l'utilisateur est l'auteur de la recette
+      if (recette.auteur.toString() !== context.user._id) {
+          throw new GraphQLError("Vous ne pouvez supprimer que vos propres recettes", { extensions: { code: "UNAUTHORIZED" } });
+      }
+
+      // Supprimer la recette de la base de données
+      await Recette.findByIdAndDelete(id);
+
+      // Optionnel : retirer l'ID de la recette du tableau 'recettes' de l'utilisateur
+      await User.findByIdAndUpdate(context.user._id, { $pull: { recettes: id } });
+
+      return { message: "Recette supprimée avec succès" }; // Message de succès
+  },
     createComment: async (_: unknown, { input }: { input: CommentInput }, context: any) => {
       if (!context.user) {
         throw new GraphQLError("Authentification requise", { extensions: { code: "UNAUTHENTICATED" } });
@@ -156,7 +184,32 @@ export const resolvers = {
         throw new GraphQLError("Vous ne pouvez modifier que vos propres commentaires", { extensions: { code: "UNAUTHORIZED" } });
       }
       return await CommentModel.findByIdAndUpdate(id, { $set: input }, { new: true });
-    }
+    },
+    // Dans tes résolveurs...
+deleteComment: async (_: unknown, { id }: { id: string }, context: any) => {
+  if (!context.user) {
+      throw new GraphQLError("Authentification requise", { extensions: { code: "UNAUTHENTICATED" } });
+  }
+
+  const comment = await CommentModel.findById(id);
+  if (!comment) {
+      throw new GraphQLError("Commentaire non trouvé", { extensions: { code: "NOT_FOUND" } });
+  }
+
+  // Vérifie si l'utilisateur est l'auteur du commentaire
+  if (comment.auteur.toString() !== context.user._id) {
+      throw new GraphQLError("Vous ne pouvez supprimer que vos propres commentaires", { extensions: { code: "UNAUTHORIZED" } });
+  }
+
+  // Supprimer le commentaire de la base de données
+  await CommentModel.findByIdAndDelete(id);
+
+  // Optionnel : retirer l'ID du commentaire de la recette associée
+  await Recette.findByIdAndUpdate(comment.recette, { $pull: { commentaire: id } });
+
+  return { message: "Commentaire supprimé avec succès" }; // Message de succès
+},
+
   }
 };
 
